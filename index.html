@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MinIO File Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .file-preview {
+            max-width: 200px;
+            max-height: 200px;
+            object-fit: cover;
+        }
+        .alert {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            display: none;
+        }
+        .alert.success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .alert.error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div class="container mx-auto p-4">
+        <h1 class="text-4xl font-bold mb-4">File Management</h1>
+
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold mb-2">Upload File</h2>
+            <form action="/upload" method="post" enctype="multipart/form-data" class="flex flex-col space-y-4">
+                <input type="file" name="file" class="border p-2 rounded" />
+                <input type="submit" value="Upload" class="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer" />
+            </form>
+        </div>
+
+        <div id="alertContainer">
+            <div id="alertSuccess" class="alert success">File uploaded successfully!</div>
+            <div id="alertError" class="alert error">Error processing the request.</div>
+        </div>
+
+        <h2 class="text-2xl font-semibold mb-2">Files in Bucket</h2>
+        <ul class="file-list list-none p-0" id="fileList"></ul>
+    </div>
+
+    <script>
+        const bucketName = 'cloud1'; 
+        const endpoint = 'http://localhost:9000'; 
+
+        async function fetchFiles() {
+            try {
+                const response = await fetch(`/list-files`);
+                if (!response.ok) throw new Error('Network response was not ok');
+                const files = await response.json();
+
+                const fileListElement = document.getElementById('fileList');
+                fileListElement.innerHTML = ''; 
+
+                files.forEach(file => {
+                    const listItem = document.createElement('li');
+                    listItem.className = 'mb-4 p-4 border rounded-lg bg-white shadow-md';
+                    listItem.innerHTML = `
+                        <div class="flex items-center justify-between">
+                            <span class="font-medium">${file}</span>
+                            <div class="file-actions flex space-x-2">
+                                <button onclick="viewFile('${file}')" class="bg-green-500 text-white px-3 py-1 rounded">View</button>
+                                <button onclick="downloadFile('${file}')" class="bg-blue-500 text-white px-3 py-1 rounded">Download</button>
+                                <button onclick="deleteFile('${file}')" class="bg-red-500 text-white px-3 py-1 rounded">Delete</button>
+                            </div>
+                        </div>
+                        <div id="preview-${file}" class="file-preview-container mt-2"></div>
+                    `;
+                    fileListElement.appendChild(listItem);
+                });
+            } catch (error) {
+                console.error('Error fetching files:', error);
+                showAlert('Error processing the request.', 'error');
+            }
+        }
+
+        async function viewFile(fileName) {
+            const fileUrl = `/view-file?file=${encodeURIComponent(fileName)}`;
+            const previewContainer = document.getElementById(`preview-${fileName}`);
+            previewContainer.innerHTML = `<img src="${fileUrl}" class="file-preview" alt="${fileName}" />`;
+        }
+
+        async function downloadFile(fileName) {
+            const fileUrl = `/download-file?file=${encodeURIComponent(fileName)}`;
+            window.location.href = fileUrl;
+        }
+
+        async function deleteFile(fileName) {
+            try {
+                await fetch(`/delete-file?file=${encodeURIComponent(fileName)}`, { method: 'DELETE' });
+                showAlert('File deleted successfully!', 'success');
+                fetchFiles(); // Refresh the list of files
+            } catch (error) {
+                console.error('Error deleting file:', error);
+                showAlert('Error deleting file.', 'error');
+            }
+        }
+
+        function showAlert(message, type) {
+            const alertSuccess = document.getElementById('alertSuccess');
+            const alertError = document.getElementById('alertError');
+            
+            if (type === 'success') {
+                alertSuccess.textContent = message;
+                alertSuccess.style.display = 'block';
+                alertError.style.display = 'none';
+            } else {
+                alertError.textContent = message;
+                alertError.style.display = 'block';
+                alertSuccess.style.display = 'none';
+            }
+
+            setTimeout(() => {
+                alertSuccess.style.display = 'none';
+                alertError.style.display = 'none';
+            }, 5000);
+        }
+
+        fetchFiles();
+    </script>
+</body>
+</html>
